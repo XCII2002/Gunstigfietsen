@@ -5,9 +5,12 @@
  *
  * Strategie: bij een fietstocht is het prettiger om de tegenwind op de
  * heenweg te hebben (als je nog fris bent) en de meewind op de terugweg.
- * Deze app bepaalt daarom een punt op de helft van de gevraagde afstand,
- * pal in de richting waar de wind vandaan komt, en genereert daarheen
- * (en terug) een fietsroute via het wegennetwerk.
+ * Deze app genereert daarom altijd een volledige rondrit (geen twee keer
+ * dezelfde weg): een ellipsvormige lus, uitgerekt langs de windrichting,
+ * met het startpunt op één van de polen. De eerste helft van de lus
+ * (de heenweg) legt daardoor steeds per saldo afstand af tegen de wind
+ * in; de tweede helft (de terugweg) juist met de wind mee. Onderweg is
+ * er onvermijdelijk ook wat zijwind — dat hoort bij elke rondrit.
  */
 
 const DEFAULT_CENTER = [52.0907, 5.1214]; // Utrecht, NL
@@ -16,6 +19,11 @@ const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
 // Publieke OSRM-demoserver (alleen "driving"-profiel beschikbaar zonder
 // eigen server; volgt gewoon wegennetwerk, geen fietspaden-specifiek).
 const OSRM_BASE = "https://router.project-osrm.org/route/v1/driving";
+
+// Vorm van de rondrit-lus: hoe kleiner LOOP_ASPECT_RATIO, hoe langgerekter
+// de ellips (meer pure tegenwind/meewind, minder zijwind), hoe dichter bij
+// 1, hoe ronder/natuurlijker de lus (meer zijwind-gedeelte).
+const LOOP_ASPECT_RATIO = 0.55;
 
 let map;
 let startMarker = null;
@@ -130,16 +138,15 @@ async function handleGenerate() {
   try {
     const wind = await fetchWind(startLatLng.lat, startLatLng.lng);
 
-    // Rijd de heenweg pal richting de bron van de wind (tegenwind),
-    // en de terugweg dus met de wind in de rug (meewind).
-    const outBearing = wind.directionDeg;
-    const halfDistanceKm = distanceKm / 2;
-    const turnPoint = destinationPoint(startLatLng.lat, startLatLng.lng, outBearing, halfDistanceKm);
+    // Bouw een gesloten lus rond het startpunt: de heenweg (eerste helft)
+    // wint per saldo terrein tegen de wind in, de terugweg (tweede helft)
+    // juist met de wind mee — zonder ooit dezelfde weg twee keer te rijden.
+    const { outboundPoints, inboundPoints } = buildLoopWaypoints(startLatLng, wind.directionDeg, distanceKm);
 
     setStatus("Route berekenen...");
     const [legOut, legBack] = await Promise.all([
-      fetchRoute(startLatLng, turnPoint),
-      fetchRoute(turnPoint, startLatLng),
+      fetchRouteThrough(outboundPoints),
+      fetchRouteThrough(inboundPoints),
     ]);
 
     drawRoute(legOut, legBack);
@@ -166,8 +173,10 @@ async function fetchWind(lat, lng) {
   };
 }
 
-async function fetchRoute(from, to) {
-  const url = `${OSRM_BASE}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+/** Bereken één route die achtereenvolgens langs alle `points` ({lat,lng}) gaat. */
+async function fetchRouteThrough(points) {
+  const coordsParam = points.map((p) => `${p.lng},${p.lat}`).join(";");
+  const url = `${OSRM_BASE}/${coordsParam}?overview=full&geometries=geojson`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("Routeservice gaf een fout.");
   const data = await res.json();
@@ -179,6 +188,49 @@ async function fetchRoute(from, to) {
     coords: route.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
     distanceMeters: route.distance,
   };
+}
+
+/**
+ * Genereer de waypoints voor een gesloten rondrit rond `start`: een ellips
+ * uitgerekt langs de windrichting, met `start` op de pool aan de
+ * "benedenwindse" kant. De eerste helft van de waypoints (heenweg) wint zo
+ * steeds terrein tegen de wind in, de tweede helft (terugweg) juist mee.
+ */
+function buildLoopWaypoints(start, windDirDeg, distanceKm) {
+  const k = LOOP_ASPECT_RATIO;
+  const a = distanceKm / ellipseCircumferenceFactor(k); // halve lengteas (km)
+  const b = k * a; // halve breedteas (km)
+  const N = distanceKm > 60 ? 12 : 8; // aantal segmenten van de lus (even)
+
+  const waypoints = [];
+  for (let i = 1; i < N; i++) {
+    const theta = Math.PI + (i * 2 * Math.PI) / N;
+    const x = a + a * Math.cos(theta); // afstand tegen de wind in vanaf start (>= 0)
+    const y = b * Math.sin(theta); // zijwaartse afstand (+/-)
+    waypoints.push(ellipsePoint(start, windDirDeg, x, y));
+  }
+
+  const half = N / 2;
+  const outboundPoints = [start, ...waypoints.slice(0, half)];
+  const inboundPoints = [...waypoints.slice(half - 1), start];
+  return { outboundPoints, inboundPoints };
+}
+
+/** Ramanujan-benadering van de omtrek van een ellips (semi-assen 1 en k), als factor. */
+function ellipseCircumferenceFactor(k) {
+  const h = Math.pow((1 - k) / (1 + k), 2);
+  return Math.PI * (1 + k) * (1 + (3 * h) / (10 + Math.sqrt(4 - 3 * h)));
+}
+
+/**
+ * Punt op `x` km tegen de windrichting in en `y` km zijwaarts (+ of -)
+ * daarvandaan, vanaf `start`. Gebruikt twee loodrechte stappen als
+ * benadering van de 2D-verplaatsing.
+ */
+function ellipsePoint(start, windDirDeg, x, y) {
+  const upwindStep = destinationPoint(start.lat, start.lng, windDirDeg, x);
+  const sideBearing = windDirDeg + (y >= 0 ? 90 : -90);
+  return destinationPoint(upwindStep.lat, upwindStep.lng, sideBearing, Math.abs(y));
 }
 
 function drawRoute(legOut, legBack) {
@@ -201,7 +253,7 @@ function showResult(wind, requestedKm, actualKm) {
   document.getElementById("result-box").classList.remove("hidden");
   document.getElementById("wind-value").textContent =
     `${Math.round(wind.speedKmh)} km/u uit het ${degToCompass(wind.directionDeg)} (${Math.round(wind.directionDeg)}°)`;
-  document.getElementById("strategy-value").textContent = "Heen tegenwind, terug meewind";
+  document.getElementById("strategy-value").textContent = "Rondrit: heen tegenwind, terug meewind";
   document.getElementById("requested-distance-value").textContent = `${requestedKm} km`;
   document.getElementById("actual-distance-value").textContent = `${actualKm.toFixed(1)} km`;
 }

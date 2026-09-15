@@ -1,8 +1,9 @@
 # Gunstig Fietsen
 
 Een kleine webapp die een fietsroute genereert op basis van een gewenste
-afstand, rekening houdend met de actuele windrichting: de heenweg gaat
-tegen de wind in, de terugweg met de wind mee.
+afstand, rekening houdend met de actuele windrichting. De route is altijd
+een volledige rondrit (nooit twee keer dezelfde weg): de heenweg wint per
+saldo terrein tegen de wind in, de terugweg juist met de wind mee.
 
 ## Gebruik
 
@@ -21,11 +22,16 @@ tegen de wind in, de terugweg met de wind mee.
 3. Vul de gewenste afstand in km in.
 4. Klik op **Genereer route**.
 
-De app haalt de actuele windrichting/-snelheid op voor de startlocatie,
-berekent een keerpunt op de helft van de afstand pal richting de bron van
-de wind, en laat OSRM een fietsroute daarheen en terug berekenen. De
-heenweg (oranje) is dus tegenwind, de terugweg (groen, gestippeld) is
-meewind.
+De app haalt de actuele windrichting/-snelheid op voor de startlocatie en
+bouwt daarmee een ellipsvormige lus rond het startpunt, uitgerekt langs de
+windrichting: het startpunt ligt op de "benedenwindse" pool, het verste
+punt van de lus op de "bovenwindse" pool. OSRM berekent vervolgens via de
+tussenliggende waypoints een fietsroute door het wegennetwerk die deze lus
+volgt. De heenweg (oranje, eerste helft van de lus) wint zo per saldo
+terrein tegen de wind in, de terugweg (groen, gestippeld, tweede helft) juist
+met de wind mee. Onderweg is er, zoals bij elke rondrit, ook een stuk
+zijwind — dat is onvermijdelijk zodra je niet dezelfde weg heen en terug
+neemt.
 
 ## Gebruikte diensten (geen API-key nodig)
 
@@ -48,7 +54,12 @@ voor persoonlijk gebruik, maar niet bedoeld voor veel verkeer/productie.
   het `bike`-profiel.
 - De strategie gaat uit van de *huidige* wind op het startpunt; wind
   onderweg of bij vertrek in de toekomst kan afwijken.
-- Het is een heen-en-terugroute (out-and-back), geen rondrit.
+- De lusvorm (`LOOP_ASPECT_RATIO` in `app.js`) is een benadering: hoe
+  langgerekter de ellips, hoe minder zijwind maar hoe "dunner"/kunstmatiger
+  de lus; hoe ronder, hoe natuurlijker maar hoe meer zijwind-aandeel.
+- De werkelijke padlengte via het wegennetwerk wijkt altijd iets af van de
+  theoretische ellipsomtrek (vandaar "gevraagde" vs. "werkelijke" afstand
+  in de resultaten).
 
 ## Bestanden
 

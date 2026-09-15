@@ -33,7 +33,19 @@ let routeLayers = [];
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
   bindUI();
+  registerServiceWorker();
 });
+
+function registerServiceWorker() {
+  // Alleen relevant voor de PWA/web-variant; in een native Capacitor-app
+  // wordt de webview al vanaf schijf geladen en is dit niet nodig.
+  if (!("serviceWorker" in navigator) || (window.Capacitor && window.Capacitor.isNativePlatform())) {
+    return;
+  }
+  navigator.serviceWorker.register("sw.js").catch(() => {
+    /* geen kritieke functionaliteit; stil negeren als registratie faalt */
+  });
+}
 
 function initMap() {
   map = L.map("map").setView(DEFAULT_CENTER, 8);
@@ -107,16 +119,31 @@ async function handleSearch() {
   }
 }
 
-function handleGeolocate() {
-  if (!navigator.geolocation) {
-    setStatus("Geolocatie wordt niet ondersteund door deze browser.", "error");
-    return;
-  }
+async function handleGeolocate() {
   setStatus("Locatie bepalen...");
-  navigator.geolocation.getCurrentPosition(
-    (pos) => setStart(pos.coords.latitude, pos.coords.longitude, "Mijn locatie"),
-    (err) => setStatus("Kon locatie niet bepalen: " + err.message, "error")
-  );
+  try {
+    const pos = await getCurrentPosition();
+    setStart(pos.coords.latitude, pos.coords.longitude, "Mijn locatie");
+  } catch (err) {
+    setStatus("Kon locatie niet bepalen: " + (err.message || err), "error");
+  }
+}
+
+/**
+ * Haalt de huidige positie op. In een native Capacitor-app (iOS/Android)
+ * via de Geolocation-plugin (die de systeem-permissiedialoog toont); in de
+ * browser/PWA via de standaard Geolocation Web API. Beide geven een object
+ * met dezelfde vorm terug: { coords: { latitude, longitude, ... } }.
+ */
+function getCurrentPosition() {
+  const capacitorGeolocation = window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins?.Geolocation;
+  if (capacitorGeolocation) {
+    return capacitorGeolocation.getCurrentPosition();
+  }
+  if (!navigator.geolocation) {
+    return Promise.reject(new Error("Geolocatie wordt niet ondersteund door deze browser."));
+  }
+  return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject));
 }
 
 async function handleGenerate() {

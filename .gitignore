@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+npm-debug.log*
+
+# ios/ heeft een eigen .gitignore (gegenereerd door "cap add ios") die
+# Pods/, build-output en de bij elke "cap sync" opnieuw gekopieerde
+# App/App/public al negeert.

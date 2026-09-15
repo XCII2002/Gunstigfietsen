@@ -1,0 +1,11 @@
+{
+  "appId": "nl.gunstigfietsen.app",
+  "appName": "Gunstig Fietsen",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always"
+  },
+  "server": {
+    "iosScheme": "https"
+  }
+}

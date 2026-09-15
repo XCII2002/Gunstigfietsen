@@ -1,0 +1,19 @@
+{
+  "name": "gunstig-fietsen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Windgerichte fietsrondrit-planner (PWA + Capacitor-wrapper voor iOS)",
+  "scripts": {
+    "start": "http-server www -p 8080 -c-1",
+    "cap:add:ios": "cap add ios",
+    "cap:sync": "cap sync ios",
+    "cap:open:ios": "cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/geolocation": "^6.0.1",
+    "@capacitor/ios": "^6.1.2",
+    "http-server": "^14.1.1"
+  }
+}

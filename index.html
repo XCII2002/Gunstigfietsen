@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gunstig Fietsen – Windgerichte Routeplanner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <h1>🚴 Gunstig Fietsen</h1>
+      <p class="subtitle">Plan een fietsroute die heen tegen de wind in gaat en terug met de wind mee.</p>
+
+      <section class="field-group">
+        <label for="location-input">Startlocatie</label>
+        <div class="input-row">
+          <input id="location-input" type="text" placeholder="Plaats of adres..." autocomplete="off" />
+          <button id="search-btn" type="button" title="Zoek locatie">Zoek</button>
+        </div>
+        <button id="geolocate-btn" type="button" class="secondary">📍 Gebruik mijn locatie</button>
+        <p class="hint">Of klik op de kaart om een startpunt te kiezen. Je kunt de pin ook verslepen.</p>
+      </section>
+
+      <section class="field-group">
+        <label for="distance-input">Gewenste afstand (km)</label>
+        <input id="distance-input" type="number" min="1" max="300" step="1" value="30" />
+      </section>
+
+      <button id="generate-btn" type="button" class="primary">Genereer route</button>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <section id="result-box" class="result-box hidden">
+        <h2>Routegegevens</h2>
+        <dl>
+          <dt>Wind</dt>
+          <dd id="wind-value">–</dd>
+          <dt>Strategie</dt>
+          <dd id="strategy-value">–</dd>
+          <dt>Gevraagde afstand</dt>
+          <dd id="requested-distance-value">–</dd>
+          <dt>Werkelijke afstand</dt>
+          <dd id="actual-distance-value">–</dd>
+        </dl>
+        <div class="legend">
+          <span><i class="swatch out"></i> Heen (tegenwind)</span>
+          <span><i class="swatch back"></i> Terug (meewind)</span>
+        </div>
+      </section>
+
+      <p class="attribution">
+        Kaart: OpenStreetMap-bijdragers &middot; Zoeken: Nominatim &middot;
+        Wind: Open-Meteo &middot; Route: OSRM (project-osrm.org, demoserver)
+      </p>
+    </aside>
+
+    <main id="map"></main>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>
